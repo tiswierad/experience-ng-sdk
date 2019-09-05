@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-import { Injectable } from '@angular/core';
+import {Inject, Injectable, Injector, PLATFORM_ID} from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-
 import { BehaviorSubject, Observable, of, Subject} from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
-
 import { ApiUrlsService } from './api-urls.service';
 import { RequestContextService } from './request-context.service';
-
-import { ApiUrls } from '../common-sdk/types';
 import {
   _buildApiUrl,
   _getContentViaReference,
@@ -32,12 +28,15 @@ import {
   updatePageMetaData,
   toUrlEncodedFormData
 } from '../common-sdk/utils/page-model';
+import {makeStateKey, TransferState} from '@angular/platform-browser';
+import {isPlatformServer} from '@angular/common';
 
 @Injectable({ providedIn: 'root' })
 export class PageModelService {
   channelManagerApi: any;
   pageModel: any;
   pageModelSubject: Subject<any> = new BehaviorSubject<any>(this.pageModel);
+  private transferState: TransferState = null;
 
   private httpGetOptions = {
     withCredentials: true
@@ -51,20 +50,49 @@ export class PageModelService {
   constructor(
     private apiUrlsService: ApiUrlsService,
     private requestContextService: RequestContextService,
-    private http: HttpClient
-  ) {}
+    private http: HttpClient,
+    @Inject(PLATFORM_ID) private platformId,
+    private injector: Injector
+  ) {  }
+
   fetchPageModel() {
     const apiUrl: string = this.buildApiUrl();
-    return this.http.get<any>(apiUrl, this.httpGetOptions).pipe(
-      tap(response => {
-        this.pageModel = response;
-        this.setPageModelSubject(response);
-        const preview: boolean = this.requestContextService.isPreviewRequest();
-        const debugging: boolean = this.requestContextService.getDebugging();
-        updatePageMetaData(this.pageModel.page, this.channelManagerApi, preview, debugging);
-      }),
-      catchError(this.handleError('fetchPageModel', undefined))
-    );
+    const PAGE_KEY = makeStateKey<any>('pagemodel');
+
+    // check if transferState is enabled
+    if (this.requestContextService.getTransferState()) {
+      this.transferState = <TransferState> this.injector.get(TransferState);
+    }
+
+    // Check if TransferState is enabled and to see if Page model exists on transferState
+    if (this.requestContextService.getTransferState() && this.transferState.hasKey(PAGE_KEY)) {
+      this.pageModel  = this.transferState.get<any>(PAGE_KEY, null);
+      this.transferState.remove(PAGE_KEY);
+      this.processPageModel();
+      return of(this.pageModel );
+    } else {
+
+      return this.http.get<any>(apiUrl, this.httpGetOptions).pipe(
+        tap(response => {
+
+          // if on server save the page model.
+          if ( this.requestContextService.getTransferState() && isPlatformServer(this.platformId)) {
+            this.transferState.set(PAGE_KEY, response);
+          }
+
+          this.pageModel = response;
+          this.processPageModel();
+        }),
+        catchError(this.handleError('fetchPageModel', undefined))
+      );
+    }
+  }
+
+  private processPageModel (): void {
+    this.setPageModelSubject(this.pageModel );
+    const preview: boolean = this.requestContextService.isPreviewRequest();
+    const debugging: boolean = this.requestContextService.getDebugging();
+    updatePageMetaData(this.pageModel.page, this.channelManagerApi, preview, debugging);
   }
 
   // no subject is needed for some classes that get the page-model after the initial fetch, such as the ImageUrlService

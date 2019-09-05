@@ -26,11 +26,12 @@ export const REQUEST = new InjectionToken<string>('request');
 export class RequestContextService {
   private requestContext: RequestContext;
   private debugging = false;
+  private transferState = false;
 
   constructor(
     private apiUrlsService: ApiUrlsService,
     @Inject(PLATFORM_ID) private platformId,
-    @Optional() @Inject(REQUEST) private request,
+    @Optional() @Inject(REQUEST) private request
   ) {}
 
   getDebugging() {
@@ -73,5 +74,13 @@ export class RequestContextService {
     const apiUrls = this.apiUrlsService.getApiUrls();
     const compiledPathRegexp = this.apiUrlsService.getCompiledPathRegexp();
     this.requestContext = _parseRequest(request, compiledPathRegexp, apiUrls, this.debugging);
+  }
+
+  getTransferState(): boolean {
+    return this.transferState;
+  }
+
+  setTransferState(transferState: boolean): void {
+    this.transferState = transferState;
   }
 }
