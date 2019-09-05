@@ -35,8 +35,12 @@ export class InitializeSdkService {
     this.onComponentUpdate = this.onComponentUpdate.bind(this);
   }
 
-  initialize({initializePageModel = true, initializeRouterEvents = true} = {}): Subscription | void {
+  initialize({initializePageModel = true, initializeRouterEvents = true, transferState = false} = {}): Subscription | void {
     this.initializeCmsIntegration();
+
+    if (transferState) {
+      this.requestContextService.setTransferState(transferState);
+    }
 
     if (initializePageModel) {
       this.fetchPageModel();
