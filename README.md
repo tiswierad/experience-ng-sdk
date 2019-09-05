@@ -379,6 +379,7 @@ Service that handles initialization of the SDK, including:
 - `initialize({initializePageModel = true, initializeRouterEvents = true}): Subscription | void` - initializes the SDK by fetching the Page Model and initializing the Channel manager integration. Returns router events subscription or void if `initializeRouterEvents` is `false`.
   - `initializePageModel: boolean` - flag to fetch the Page Model on initialization;
   - `initializeRouterEvents: boolean` - flag to subscribe for router events.
+  - `transferState: boolean` - flag to use Angular's TransferState API during Server Side Rendering to prevent the page from being reloaded once Angular loads in the browser
 
 ### `PageModelService`
 
